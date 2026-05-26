@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Swiss Classic World - Memory Challenge</title>
+
+<style>
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  padding: 10px;
+  background: #0a0a0a;
+  color: #d4af37;
+  font-family: Arial, Helvetica, sans-serif;
+  text-align: center;
+}
+
+h1 {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  font-size: 30px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+#timer {
+  color: white;
+  font-size: 38px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.card {
+  position: relative;
+  background: #1a1a1a;
+  border: 2px solid #d4af37;
+  border-radius: 14px;
+  height: 180px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.card:active {
+  transform: scale(0.96);
+}
+
+.card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: none;
+  padding: 5px;
+}
+
+.quest {
+  font-size: 60px;
+  color: #333;
+  font-weight: bold;
+}
+
+.name-tag {
+  display: none;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  padding: 10px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.card.flipped img,
+.card.flipped .name-tag {
+  display: block;
+}
+
+.card.flipped .quest {
+  display: none;
+}
+
+.card.matched {
+  border-color: #2ecc71;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+button,
+.admin-link {
+  background: #d4af37;
+  color: black;
+  border: none;
+  border-radius: 10px;
+  padding: 18px 28px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 15px;
+  text-decoration: none;
+  display: inline-block;
+}
+
+#lead-form {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 92%;
+  max-width: 620px;
+  background: #1a1a1a;
+  border: 3px solid #d4af37;
+  border-radius: 18px;
+  padding: 30px;
+  z-index: 999;
+}
+
+#lead-form h2 {
+  color: white;
+  font-size: 32px;
+}
+
+#stats {
+  color: #d4af37;
+  font-size: 26px;
+  font-weight: bold;
+}
+
+input {
+  width: 100%;
+  padding: 18px;
+  margin-top: 12px;
+  border-radius: 10px;
+  border: 1px solid #444;
+  background: #222;
+  color: white;
+  font-size: 18px;
+}
+
+.checkbox-container {
+  margin-top: 18px;
+  text-align: left;
+  color: #ccc;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.checkbox-container input {
+  width: auto;
+  margin-right: 10px;
+}
+
+#admin-panel {
+  margin-top: 40px;
+  padding-bottom: 30px;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .card {
+    height: 150px;
+  }
+}
+
+@media (max-width: 600px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .card {
+    height: 135px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  #timer {
+    font-size: 28px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<h1>🏆 Classic Car Challenge</h1>
+<div id="timer">Zeit: 0s</div>
+
+<div class="grid" id="grid"></div>
+
+<div id="start-btn-container">
+  <button id="start-btn">Jetzt starten</button>
+</div>
+
+<div id="lead-form">
+  <h2>🔥 Gratulation!</h2>
+
+  <p id="stats"></p>
+
+  <input type="text" id="fname" placeholder="Vorname & Nachname" required>
+
+  <input type="email" id="femail" placeholder="E-Mail Adresse" required>
+
+  <input type="number" id="fage" placeholder="Alter" required>
+
+  <div class="checkbox-container">
+    <label>
+      <input type="checkbox" id="privacy">
+      Ich akzeptiere mit dem Absenden meiner Daten die Allgemeinen Geschäftsbedingungen sowie die Datenschutzrichtlinien der Emil Frey Classics.
+    </label>
+  </div>
+
+  <button id="save-btn">Daten absenden</button>
+</div>
+
+<div id="admin-panel">
+  <a class="admin-link"
+     target="_blank"
+     href="https://docs.google.com/spreadsheets/u/0/">
+     Teilnehmerliste in Google Sheets öffnen
+  </a>
+</div>
+
+<script>
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3b4umFK38BiUFGrrgmjnzRkw_0AFIqxjyaFZ6pJjW8GcwazjcStkcJML0P9Ws7JI_vA/exec';
+
+const cars = [
+  { name: 'Aston Martin DB MK III', img: 'db24.jpg' },
+  { name: 'Aston Martin DB4', img: 'db4.jpg' },
+  { name: 'Aston Martin V8 Volante', img: 'v8.jpg' },
+  { name: 'Jaguar S.S. 1.5 Litre', img: 'ss15.jpg' },
+  { name: 'Jaguar XJ-SC V12', img: 'xjsc.jpg' },
+  { name: 'Jaguar XK 120 DHC', img: 'xk120.jpg' },
+  { name: 'Jaguar XKR S/C Coupé', img: 'xkr.jpg' },
+  { name: 'Range Rover 4.0', img: 'range.jpg' },
+  { name: 'Maserati 3500 GT', img: 'maserati.jpg' },
+  { name: 'Mercedes-Benz 300 CE', img: 'mercedes.jpg' },
+  { name: 'Morgan Plus 8', img: 'morgan.jpg' },
+  { name: 'Rover P6 2000 TC', img: 'rover.jpg' }
+];
+
+let flippedCards = [];
+let matches = 0;
+let attempts = 0;
+let seconds = 0;
+let timerInterval;
+let lockBoard = false;
+
+const grid = document.getElementById('grid');
+const timer = document.getElementById('timer');
+const startBtn = document.getElementById('start-btn');
+const saveBtn = document.getElementById('save-btn');
+
+startBtn.addEventListener('click', startGame);
+saveBtn.addEventListener('click', saveData);
+
+function startGame() {
+
+  matches = 0;
+  attempts = 0;
+  seconds = 0;
+  flippedCards = [];
+
+  clearInterval(timerInterval);
+
+  timerInterval = setInterval(() => {
+    seconds++;
+    timer.innerText = `Zeit: ${seconds}s`;
+  }, 1000);
+
+  document.getElementById('start-btn-container').style.display = 'none';
+
+  grid.innerHTML = '';
+
+  let gameItems = [];
+
+  const selection = [...cars]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 6);
+
+  selection.forEach(car => {
+    gameItems.push({
+      type: 'img',
+      id: car.name,
+      img: car.img
+    });
+
+    gameItems.push({
+      type: 'name',
+      id: car.name,
+      text: car.name
+    });
+  });
+
+  gameItems.sort(() => Math.random() - 0.5);
+
+  gameItems.forEach(item => {
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.id = item.id;
+
+    if(item.type === 'img') {
+      card.innerHTML = `
+        <img src="${item.img}" alt="${item.id}">
+        <span class="quest">?</span>
+      `;
+    } else {
+      card.innerHTML = `
+        <div class="name-tag">${item.text}</div>
+        <span class="quest">?</span>
+      `;
+    }
+
+    card.addEventListener('click', () => flipCard(card), { passive: true });
+    card.addEventListener('touchstart', () => flipCard(card), { passive: true });
+
+    grid.appendChild(card);
+  });
+}
+
+function flipCard(card) {
+
+  if(lockBoard) return;
+  if(card.classList.contains('flipped')) return;
+  if(card.classList.contains('matched')) return;
+
+  card.classList.add('flipped');
+  flippedCards.push(card);
+
+  if(flippedCards.length === 2) {
+    attempts++;
+    lockBoard = true;
+
+    setTimeout(checkMatch, 700);
+  }
+}
+
+function checkMatch() {
+
+  const [card1, card2] = flippedCards;
+
+  if(card1.dataset.id === card2.dataset.id) {
+
+    card1.classList.add('matched');
+    card2.classList.add('matched');
+
+    matches++;
+
+    if(matches === 6) {
+      clearInterval(timerInterval);
+      showLeadForm();
+    }
+
+  } else {
+
+    card1.classList.remove('flipped');
+    card2.classList.remove('flipped');
+  }
+
+  flippedCards = [];
+  lockBoard = false;
+}
+
+function showLeadForm() {
+
+  document.getElementById('stats').innerHTML = `
+    ${seconds} Sekunden<br>
+    ${attempts} Versuche
+  `;
+
+  document.getElementById('lead-form').style.display = 'block';
+}
+
+function validateEmail(email) {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email);
+}
+
+async function saveData() {
+
+  const name = document.getElementById('fname').value.trim();
+  const email = document.getElementById('femail').value.trim();
+  const age = document.getElementById('fage').value.trim();
+  const privacyAccepted = document.getElementById('privacy').checked;
+
+  if(!name || !email || !age) {
+    alert('Bitte alle Felder ausfüllen.');
+    return;
+  }
+
+  if(!privacyAccepted) {
+    alert('Bitte Datenschutz und AGB akzeptieren.');
+    return;
+  }
+
+  if(!validateEmail(email)) {
+    alert('Bitte gültige E-Mail Adresse eingeben.');
+    return;
+  }
+
+  const entry = {
+    timestamp: new Date().toLocaleString('de-CH'),
+    name: name,
+    email: email,
+    age: age,
+    time: seconds,
+    attempts: attempts,
+    privacyAccepted: 'JA',
+    device: navigator.platform,
+    browser: navigator.userAgent
+  };
+
+  try {
+
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(entry)
+    });
+
+    alert('Teilnahme erfolgreich gespeichert.');
+
+    location.reload();
+
+  } catch(error) {
+
+    console.error(error);
+    alert('Fehler beim Speichern der Daten.');
+  }
+}
+</script>
+
+</body>
+</html>
